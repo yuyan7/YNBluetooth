@@ -1,0 +1,27 @@
+opt_in_rules:
+- closure_end_indentation
+- closure_spacing
+- conditional_returns_on_newline
+- empty_count
+- explicit_init
+- first_where
+- force_unwrapping
+- missing_docs
+- number_separator
+- object_literal
+- operator_usage_whitespace
+- overridden_super_call
+- private_outlet
+- prohibited_super_call
+- redundant_nil_coalescing
+- sorted_imports
+- switch_case_on_newline
+
+excluded:
+- Carthage
+- Cartfile
+- Cartfile.resolved
+
+line_length: 300
+identifier_name:
+  min_length: 2
