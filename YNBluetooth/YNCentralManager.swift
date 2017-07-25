@@ -22,7 +22,7 @@ public protocol YNCentralManagerDelegate: class {
 public class YNCentralManager: NSObject {
 
     /// CentralManager
-    let centralManager: CBCentralManager
+    var centralManager: CBCentralManager!
 
     /// Delegate
     public weak var delegate: YNCentralManagerDelegate?
@@ -33,7 +33,7 @@ public class YNCentralManager: NSObject {
     fileprivate var tmpPeripheral: CBPeripheral?
 
     /// Target Service UUID's
-    let targets: [CBUUID]?
+    var targets: [CBUUID]?
 
     /// Initialize
     ///
@@ -41,8 +41,7 @@ public class YNCentralManager: NSObject {
     ///   - input: Target Service UUID's
     ///   - queue: DispatchQueue
     ///   - options: Option
-    public init(input: [String]?, queue: DispatchQueue?, options: [String: AnyObject]?) {
-        centralManager = CBCentralManager(delegate: nil, queue: queue, options: options)
+    public init(input: [String]?, queue: DispatchQueue?, options: [String: Any]?) {
         if let strs = input {
             targets = strs.map({ (uuid) -> CBUUID in
                 return CBUUID(string: uuid)
@@ -52,7 +51,7 @@ public class YNCentralManager: NSObject {
         }
         peripherals = [WeakRef<YNCPeripheral>]()
         super.init()
-        centralManager.delegate = self
+        centralManager = CBCentralManager(delegate: self, queue: queue, options: options)
     }
 
     /// Convenience Initialize
@@ -68,10 +67,11 @@ public class YNCentralManager: NSObject {
     ///
     /// - Parameter input: Target Service UUID's
     public convenience init(input: [String]?) {
-        let option = [
-            CBCentralManagerOptionShowPowerAlertKey: NSNumber(value: true)
-        ]
-        self.init(input: input, queue: nil, options: option)
+        let options = [
+            CBCentralManagerOptionShowPowerAlertKey: NSNumber(value: true),
+            CBCentralManagerOptionRestoreIdentifierKey: Bundle.main.bundleIdentifier as Any
+            ] as [String : Any]
+        self.init(input: input, queue: nil, options: options)
     }
 
     /// Start Scan
@@ -146,7 +146,13 @@ extension YNCentralManager: CBPeripheralDelegate {
     ///   - peripheral: Peripheral
     ///   - invalidatedServices: changed Service
     public func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
-
+        guard let services = peripheral.services else {
+            return
+        }
+        debugLog("Discover Service \(services)")
+        let obj = YNCPeripheral(peripheral: peripheral, services: services)
+        delegate?.findPeripheral(central: self, find: obj)
+        self.peripherals.append(WeakRef(value: obj))
     }
 }
 
@@ -159,7 +165,18 @@ extension YNCentralManager: CBCentralManagerDelegate {
     ///   - central: centralmanager
     ///   - dict: parameter
     public func centralManager(_ central: CBCentralManager, willRestoreState dict: [String : Any]) {
-
+        debugLog("RestoreState \(dict)")
+        targets = dict[CBCentralManagerRestoredStateScanServicesKey] as? [CBUUID]
+        if let peripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] {
+            // 接続していたペリフェラルが存在する時、再接続
+            for peripheral in peripherals {
+                self.tmpPeripheral = peripheral
+                central.connect(peripheral, options: nil)
+            }
+        } else {
+            // スキャン開始
+            startScan()
+        }
     }
 
     /// CentralManagerDidupdateState
@@ -215,7 +232,13 @@ extension YNCentralManager: CBCentralManagerDelegate {
     ///   - peripheral: Failed to Connect Peripheral
     ///   - error: error
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-
+        debugLog("FailToConnect Peripheral \(peripheral)")
+        if let error = error {
+            debugLog("Error \(error.localizedDescription)")
+        }
+        // リトライ
+        self.tmpPeripheral = peripheral
+        central.connect(peripheral, options: nil)
     }
 
     /// CentralManager is Disconnect Peripheral
@@ -229,5 +252,7 @@ extension YNCentralManager: CBCentralManagerDelegate {
         if let error = error {
             debugLog("Error \(error.localizedDescription)")
         }
+        self.tmpPeripheral = peripheral
+        central.connect(peripheral, options: nil)
     }
 }

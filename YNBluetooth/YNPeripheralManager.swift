@@ -35,7 +35,7 @@ public class YNPeripheralManager: NSObject {
     ///   - input: Service list
     ///   - queue: DispatchQueue
     ///   - options: Option
-    public init(input: [YNPService], queue: DispatchQueue?, options: [String: AnyObject]?) {
+    public init(input: [YNPService], queue: DispatchQueue?, options: [String: Any]?) {
         peripheralManager = CBPeripheralManager(delegate: nil, queue: queue, options: options)
         services = input
         super.init()
@@ -55,10 +55,10 @@ public class YNPeripheralManager: NSObject {
     ///
     /// - Parameter input: service list
     public convenience init(input: [YNPService]) {
-        let option = [
+        let options = [
             CBPeripheralManagerOptionShowPowerAlertKey: NSNumber(value: true)
         ]
-        self.init(input: input, queue: nil, options: option)
+        self.init(input: input, queue: nil, options: options)
     }
 
     /// Stop Advertize
